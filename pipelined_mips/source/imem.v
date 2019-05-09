@@ -6,7 +6,7 @@ module imem (
     reg [31:0] rom [0:63];
 
     initial begin
-        $readmemh ("memfile.dat", rom);
+        $readmemh ("C:/Users/drnuc/OneDrive/Desktop/mips_SoC_pipelined/pipelined_mips/fact_test.dat", rom);
     end
 
     assign y = rom[a];

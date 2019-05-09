@@ -29,8 +29,10 @@ module auxdec (
                 6'b01_0000: ctrl = 9'bxxxx_0_0_1_1_0; // MFHI
                 6'b01_0010: ctrl = 9'bxxxx_0_0_0_1_0; // MFLO
                 6'b00_1000: ctrl = 9'bxxxx_0_0_0_0_1; // JR
+                //6'b11_1111: ctrl = 9'bxxxx_0_0_0_0_0; // NO-OP
 
-                default:    ctrl = 9'bxxxx_xxxx_x;
+
+                default:    ctrl = 9'bxxxx_xxxx_0;
             endcase
         endcase
     end

@@ -1,0 +1,29 @@
+		jal jump
+		nop
+		addi $a1, $0, 10
+jump:		addi $a1, $0, 0 
+		addi $a2, $0, 5 
+		addi $t1, $0, 3
+		nop
+		nop
+		nop
+		nop
+		multu $a2, $t1
+		nop
+		nop
+		mflo $t4	
+			
+back:		addi $t2, $0, 4
+		addi $t3, $0, 5
+		nop
+		nop
+		nop		
+	      sw $t1, 0($t2)
+		 sw $t3, 4($t2)
+		nop
+		nop
+		nop
+		 lw $a0, 4($t2)		
+		 add $a3, $t1, $t2
+		 beq $a2, $0, back
+		nop

@@ -10,17 +10,24 @@ module tb_mips_top;
     wire [31:0] rd_dm;
     wire [31:0] DONT_USE;
     
+    reg [31:0]  gpi_1, gpi_2;
+    wire [31:0] gpo_1, gpo_2;
+    
     mips_top DUT (
             .clk            (clk),
             .rst            (rst),
-            .we_dm          (we_dm),
+            .gpi_1          (gpi_1),
+            .gpi_2          (gpi_2),
+            .we             (we_dm),
             .ra3            (5'h0),
             .pc_current     (pc_current),
             .instr          (instr),
             .alu_out        (alu_out),
-            .wd_dm          (wd_dm),
-            .rd_dm          (rd_dm),
-            .rd3            (DONT_USE)
+            .wd             (wd_dm),
+            .ReadData       (rd_dm),
+            .rd3            (DONT_USE),
+            .gpo_1          (gpo_1),
+            .gpo_2          (gpo_2)
         );
     
     task tick; 
@@ -39,8 +46,15 @@ module tb_mips_top;
     endtask
     
     initial begin
+    
         reset;
-        while(pc_current != 32'h10) tick;
+        gpi_2 = 0;
+        for (integer i = 0; i < 16; i = i + 1) begin
+            gpi_1 = i;
+            
+            while(pc_current != 32'hC8) tick;
+            tick;
+        end
         $finish;
     end
 

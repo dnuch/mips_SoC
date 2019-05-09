@@ -20,40 +20,181 @@ module datapath (
         output wire [31:0] pc_current,
         output wire [31:0] alu_out,
         output wire [31:0] wd_dm,
-        output wire [31:0] rd3
+        output wire [31:0] rd3,
+        output wire [31:0] instrD
     );
-
+    
+    wire [31:0] rd_dmM;
+    wire [31:0] alu_outM;
+    wire [31:0] wd_dmM;
+    assign rd_dmM = rd_dm;
+    assign alu_out = alu_outM;
+    assign wd_dm = wd_dmM;
+    
+    wire [31:0]  instrE;
+    wire [31:0]  instrM;
+    wire [31:0]  instrW;
+    wire [31:0] pc_plus4D;
     wire [31:0]  shamt_in;
     wire [4:0]  rf_wa;
-    wire [4:0]  rf_wa_rdt;
+    wire [4:0]  rf_wa_rdtE;
+    wire [4:0]  rf_wa_rdtM;
+    wire [4:0]  rf_wa_rdtW;
     wire [4:0]  rf_wa_ra;
     wire        pc_src;
-    wire [31:0] pc_plus4;
+    wire [31:0] rd_dmW;
+    wire [31:0] pc_plus4F;    
+    wire [31:0] pc_plus8;    
     wire [31:0] pc_pre;
     wire [31:0] pc_next;
     wire [31:0] pc_next_pre;
-    wire [31:0] sext_imm;
+    wire [31:0] sext_immD;
+    wire [31:0] sext_immE;
     wire [31:0] ba;
     wire [31:0] bta;
     wire [31:0] jta;
     wire [31:0] alu_pa;
     wire [31:0] alu_pb;
     wire [31:0] wd_rf;
-    wire [31:0] high_in;
-    wire [31:0] low_in;
+    wire [31:0] high_inE;
+    wire [31:0] low_inE;
+    wire [31:0] high_inM;
+    wire [31:0] low_inM;
+    wire [31:0] high_inW;
+    wire [31:0] low_inW;
+    wire [31:0] alu_outE;
+    wire [31:0] alu_outW;
     wire [31:0] sfmux_in0;
     wire [31:0] sfmux_in1;
     wire [31:0] sfmux_out;
     wire [31:0] wd_aludm;
     wire [31:0] wd_sfhl;    
-    wire [31:0] rs;
-
+    wire [31:0] rsD;
+    wire [31:0] rsE;
+    wire [31:0] wd_dmD;
+    wire [31:0] wd_dmE;
     wire        zero;
     
     assign pc_src = branch & zero;
-    assign ba = {sext_imm[29:0], 2'b00};
-    assign jta = {pc_plus4[31:28], instr[25:0], 2'b00};
-    assign shamt_in = {27'd0, instr[10:6]};
+    assign ba = {sext_immD[29:0], 2'b00};
+    assign jta = {pc_plus4F[31:28], instrD[25:0], 2'b00};
+    assign shamt_in = {27'd0, instrE[10:6]};
+    
+    // Stage Registers       
+    // ---DECODE---
+    dreg InstrD_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (instr),
+                .q              (instrD)
+            );
+   
+   dreg pcplus4D_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (pc_plus4F),
+                .q              (pc_plus4D)
+            );
+    // ---EXECUTE---
+    dreg InstrE_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (instrD),
+                .q              (instrE)
+            );
+    
+    dreg rsE_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (rsD),
+                .q              (rsE)
+            );
+            
+    dreg wd_dmE_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (wd_dmD),
+                .q              (wd_dmE)
+            );
+
+    dreg sext_immE_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (sext_immD),
+                .q              (sext_immE)
+            );
+    // ---MEMORY---
+    dreg InstrM_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (instrE),
+                .q              (instrM)
+            );
+                
+    dreg #64 multM_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              ({high_inE, low_inE}),
+                .q              ({high_inM, low_inM})
+    );
+
+    dreg aluM_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (alu_outE),
+                .q              (alu_outM)
+    );        
+    
+    dreg wd_dmM_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (wd_dmE),
+                .q              (wd_dmM)
+    );
+
+    dreg #5 rfwa_rdtM_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (rf_wa_rdtE),
+                .q              (rf_wa_rdtM)
+    );            
+    
+    //---WRITE-BACK---
+    dreg InstrW_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (instrM),
+                .q              (instrW)
+            );
+            
+    dreg #64 multW_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              ({high_inM, low_inM}),
+                .q              ({high_inW, low_inW})
+    );
+
+    dreg rd_dmW_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (rd_dmM),
+                .q              (rd_dmW)
+    );
+    
+    dreg aluW_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (alu_outM),
+                .q              (alu_outW)
+    );    
+    
+    dreg #5 rfwa_rdtW_reg (
+                .clk            (clk),
+                .rst            (rst),
+                .d              (rf_wa_rdtM),
+                .q              (rf_wa_rdtW)
+    );    
+    
     
     // --- PC Logic --- //
     dreg pc_reg (
@@ -66,18 +207,24 @@ module datapath (
     adder pc_plus_4 (
             .a              (pc_current),
             .b              (32'd4),
-            .y              (pc_plus4)
+            .y              (pc_plus4F)
         );
 
+    adder plus_4 (
+            .a              (pc_plus4D),
+            .b              (32'd4),
+            .y              (pc_plus8)
+        );
+        
     adder pc_plus_br (
-            .a              (pc_plus4),
+            .a              (pc_plus4D),
             .b              (ba),
             .y              (bta)
         );
 
     mux2 #(32) pc_src_mux (
             .sel            (pc_src),
-            .a              (pc_plus4),
+            .a              (pc_plus4F),
             .b              (bta),
             .y              (pc_pre)
         );
@@ -93,13 +240,13 @@ module datapath (
     mux2 #(32) rfwd_jal_mux (
                 .sel            (jal),
                 .a              (wd_sfhl),
-                .b              (pc_plus4),
+                .b              (pc_plus8),
                 .y              (wd_rf)
                 );
                 
     mux2 #(5) rfwa_jal_mux (
                 .sel            (jal),
-                .a              (rf_wa_rdt),
+                .a              (rf_wa_rdtW),
                 .b              (5'd31),
                 .y              (rf_wa_ra)
                 );
@@ -107,7 +254,7 @@ module datapath (
     mux2 #(32) pcjr_mux (
                 .sel            (jr),
                 .a              (pc_next_pre),
-                .b              (rs),
+                .b              (rsD),
                 .y              (pc_next)
                 );
                 
@@ -121,42 +268,48 @@ module datapath (
     // --- sll, srl Support --- //
     mux2 #(32) shift_mux (
                 .sel            (shmux),
-                .a              (rs),
+                .a              (rsE),
                 .b              (shamt_in),
                 .y              (alu_pa)
                 );
-                
+    // ***************************************************           
     // --- RF Logic --- //
     mux2 #(5) rf_wa_mux (
             .sel            (reg_dst),
-            .a              (instr[20:16]),
-            .b              (instr[15:11]),
-            .y              (rf_wa_rdt)
+            .a              (instrE[20:16]),
+            .b              (instrE[15:11]),
+            .y              (rf_wa_rdtE)
         );
 
     regfile rf (
             .clk            (clk),
             .we             (we_reg),
-            .ra1            (instr[25:21]),
-            .ra2            (instr[20:16]),
+            .ra1            (instrD[25:21]),
+            .ra2            (instrD[20:16]),
             .ra3            (ra3),
             .wa             (rf_wa),
             .wd             (wd_rf),
-            .rd1            (rs),
-            .rd2            (wd_dm),
+            .rd1            (rsD),
+            .rd2            (wd_dmD),
             .rd3            (rd3)
         );
 
     signext se (
-            .a              (instr[15:0]),
-            .y              (sext_imm)
+            .a              (instrD[15:0]),
+            .y              (sext_immD)
         );
-
+    
+    comparator comp(
+            .a              (rsD),
+            .b              (wd_dmD),
+            .out            (zero)
+            );
+            
     // --- ALU Logic --- //
     mux2 #(32) alu_pb_mux (
             .sel            (alu_src),
-            .a              (wd_dm),
-            .b              (sext_imm),
+            .a              (wd_dmE),
+            .b              (sext_immE),
             .y              (alu_pb)
         );
 
@@ -164,29 +317,29 @@ module datapath (
             .op             (alu_ctrl),
             .a              (alu_pa),
             .b              (alu_pb),
-            .zero           (zero),
-            .y              (alu_out)
+            //.zero           (zero),
+            .y              (alu_outE)
         );
 
     // --- MULTIPLIER --- //
-    multiplier mult(
-            .A              (rs),
-            .B              (wd_dm),
+    multiplier_en mult(
+            .A              (rsE),
+            .B              (wd_dmE),
             .en             (mult_enable),
-            .Y              ({high_in, low_in})
+            .Y              ({high_inE, low_inE})
             );
     
     dreg low_reg(
             .clk            (clk),
             .rst            (rst),
-            .d              (low_in),
+            .d              (low_inW),
             .q              (sfmux_in0)
             );
                     
     dreg high_reg(
             .clk            (clk),
             .rst            (rst),
-            .d              (high_in),
+            .d              (high_inW),
             .q              (sfmux_in1)
             );
     
@@ -207,8 +360,8 @@ module datapath (
     // --- MEM Logic --- //
     mux2 #(32) rf_aludm_mux (
             .sel            (dm2reg),
-            .a              (alu_out),
-            .b              (rd_dm),
+            .a              (alu_outW),
+            .b              (rd_dmW),
             .y              (wd_aludm)
         );
         

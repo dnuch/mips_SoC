@@ -24,6 +24,7 @@ module mips (
     wire        mult_enable;
     wire        sfmux_high;
     wire        sf2reg;
+    wire [31:0] instrD;
 
     datapath dp (
             .clk            (clk),
@@ -47,12 +48,15 @@ module mips (
             .shmux          (shmux),
             .mult_enable    (mult_enable),
             .sfmux_high     (sfmux_high),
-            .sf2reg         (sf2reg)
+            .sf2reg         (sf2reg),
+            .instrD         (instrD)
         );
 
     controlunit cu (
-            .opcode         (instr[31:26]),
-            .funct          (instr[5:0]),
+            .clk            (clk),
+            .rst            (rst),
+            .opcode         (instrD[31:26]),
+            .funct          (instrD[5:0]),
             .branch         (branch),
             .jump           (jump),
             .reg_dst        (reg_dst),

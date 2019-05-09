@@ -24,7 +24,9 @@ module maindec (
             6'b00_0011: ctrl = 10'b0_1_0_1_0_0_0_00_1; // JAL
             6'b10_1011: ctrl = 10'b0_0_0_0_1_1_0_00_0; // SW
             6'b10_0011: ctrl = 10'b0_0_0_1_1_0_1_00_0; // LW
-            default:    ctrl = 10'bx_x_x_x_x_x_x_xx_x;
+            //6'b11_1111: ctrl = 10'b0_0_0_0_0_0_0_00_0; // NO-OP
+
+            default:    ctrl = 10'b0_0_x_x_x_x_x_xx_0;
         endcase
     end
 

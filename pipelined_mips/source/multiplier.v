@@ -1,4 +1,4 @@
-module multiplier(
+module multiplier_en(
     input wire [31:0]  A,
     input wire [31:0]  B,
     input wire         en,
@@ -7,7 +7,8 @@ module multiplier(
 
 always @ (A, B, en)
 begin
-    if (en) Y = A * B;
+    if (en) Y <= A * B;
+    else    Y <= Y;
 end    
     
 endmodule
