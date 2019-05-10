@@ -15,8 +15,19 @@ module controlunit (
         output  wire        jal,     // D
         output  wire        shmux,   // E
         output  wire        mult_enable,    // E
-        output  wire        sfmux_high,     // W
-        output  wire        sf2reg          // W
+        output  wire        sfmux_high,     // M
+        output  wire        sf2reg,          // W
+        
+        // Control Signals sampled by Hazard Unit
+        output wire         we_regE,
+        output wire         we_regM,
+        output wire         we_regW, 
+        output  wire        sf2regM,
+        output wire         dm2regE,
+        output wire         dm2regM,
+        // Input from Hazard Unit to Flush E-Reg
+        input wire          FlushE
+
     );
     
     //wire [1:0] alu_op;  <-- replaced by alu_opD
@@ -42,7 +53,7 @@ module controlunit (
     assign {branch, jump, jal, jr} = {branchD, jumpD, jalD, jrD};     // // in-use signals, note: alu_opD is used internally
     
     // ____________execute_____________
-    wire reg_dstE, we_regE, alu_srcE, we_dmE, dm2regE, shmuxE, mult_enableE, sfmux_highE, sf2regE;
+    wire reg_dstE, alu_srcE, we_dmE, shmuxE, mult_enableE, sfmux_highE, sf2regE;
     wire [3:0] alu_ctrlE; 
     // batch all execute-stage signals that will go through stage register
     assign {reg_dstE, we_regE, alu_srcE, we_dmE, dm2regE, alu_ctrlE, shmuxE, mult_enableE, sfmux_highE, sf2regE} = signals_inE;    //alu_ctrlE 4 bit
@@ -50,26 +61,27 @@ module controlunit (
     assign {reg_dst, alu_src, alu_ctrl, shmux, mult_enable} = {reg_dstE, alu_srcE, alu_ctrlE, shmuxE, mult_enableE}; // in-use signals
     
     // ____________memory_____________
-    wire we_regM, we_dmM, dm2regM, sfmux_highM, sf2regM;
+    wire we_dmM, sfmux_highM;
     // batch all memory-stage signals that will go through stage register
     assign {we_regM, we_dmM, dm2regM, sfmux_highM, sf2regM} = signals_inM;   
     assign signals_outM = {we_regM, dm2regM, sfmux_highM, sf2regM};   
-    assign we_dm = we_dmM;  // in-use signals
+    assign {we_dm, sfmux_high} = {we_dmM, sfmux_highM};  // in-use signals !UPDATED! sfmux_high is now coming from sfmux_highM instead of sfmux_highW
     
     // ____________write-back_____________
-    wire we_regW, dm2regW, sfmux_highW, sf2regW;
+    wire dm2regW, sfmux_highW, sf2regW;
     // batch all writeback-stage signals that will go through stage register
     assign {we_regW, dm2regW, sfmux_highW, sf2regW} = signals_inW;   
-    assign {dm2reg, sfmux_high, sf2reg} = {dm2regW, sfmux_highW, sf2regW};  // in-use signals   
+    assign {dm2reg, sf2reg} = {dm2regW, sf2regW};  // in-use signals   
 
     assign we_reg = (jal == 1)? 1: we_regW;
     // ________________________________
     //      SET UP STAGE REGISTERS   
     
     // ____________execute_____________    
-    dreg #13 decE_reg (
+    dreg_clr #13 decE_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .clr            (FlushE),
                 .d              (signals_outD),
                 .q              (signals_inE)
             );

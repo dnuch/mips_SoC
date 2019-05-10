@@ -26,6 +26,26 @@ module mips (
     wire        sf2reg;
     wire [31:0] instrD;
 
+    // Internal Signals needed for Hazard Unit
+    wire StallF;
+    wire StallD;
+    wire FlushE;
+    wire fordAD;
+    wire fordBD;
+    wire [1:0] fordAE;
+    wire [1:0] fordBE;
+    wire fordMultM;
+    wire [4:0]  rf_waE;
+    wire [4:0]  rf_waM;
+    wire [4:0]  rf_waW;        
+    wire [31:0] instrE;
+    wire we_regE;
+    wire we_regM;
+    wire we_regW;
+    wire sf2regM;
+    wire dm2regE;
+    wire dm2regM;
+    
     datapath dp (
             .clk            (clk),
             .rst            (rst),
@@ -49,7 +69,23 @@ module mips (
             .mult_enable    (mult_enable),
             .sfmux_high     (sfmux_high),
             .sf2reg         (sf2reg),
-            .instrD         (instrD)
+            .instrD         (instrD),
+            // Additional signals for Hazard Unit
+            // ___inputs from Hazard Unit___
+            .StallF         (StallF),
+            .StallD         (StallD),
+            .FlushE         (FlushE),
+            .fordAD         (fordAD),
+            .fordBD         (fordBD),
+            .fordAE         (fordAE),
+            .fordBE         (fordBE),
+            .fordMultM      (fordMultM),
+            // ___outputs to Hazard Unit___
+            .rf_wa_rdtE     (rf_waE),
+            .rf_wa_rdtM     (rf_waM),
+            .rf_wa_rdtW     (rf_waW),
+            // need these two so that Hazard Unit can sample rs and rt (just being lazy) 
+            .instrE         (instrE)        
         );
 
     controlunit cu (
@@ -70,7 +106,44 @@ module mips (
             .shmux          (shmux),
             .mult_enable    (mult_enable),
             .sfmux_high     (sfmux_high),
-            .sf2reg         (sf2reg)
+            .sf2reg         (sf2reg),
+            // Control Signals sampled by Hazard Unit
+            .we_regE        (we_regE),
+            .we_regM        (we_regM),
+            .we_regW        (we_regW),
+            .sf2regM        (sf2regM),
+            .dm2regE        (dm2regE),
+            .dm2regM        (dm2regM),
+            // Input from Hazard Unit to Flush E-Reg
+            .FlushE         (FlushE)
+        );
+        
+    hazard_unit hu(
+                // Inputs from datapath
+            .rsD            (instrD[25:21]),
+            .rtD            (instrD[20:16]),
+            .rsE            (instrE[25:21]),
+            .rtE            (instrE[20:16]),
+            .rf_waE         (rf_waE),
+            .rf_waM         (rf_waM),
+            .rf_waW         (rf_waW),
+                // Inputs from control unit
+            .we_regE        (we_regE),
+            .we_regM        (we_regM),
+            .we_regW        (we_regW),
+            .sf2regM        (sf2regM),
+            .dm2regE        (dm2regE), 
+            .dm2regM        (dm2regM), 
+            .branchD        (branch), // branch is already in D-stage
+                // Output
+            .StallF         (StallF),
+            .StallD         (StallD),
+            .FlushE         (FlushE),
+            .fordAD         (fordAD),
+            .fordBD         (fordBD),
+            .fordAE         (fordAE),
+            .fordBE         (fordBE),
+            .fordMultM      (fordMultM)
         );
 
 endmodule

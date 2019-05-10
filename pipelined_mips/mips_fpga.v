@@ -46,7 +46,7 @@ module mips_fpga (
         );
 
     mips_top mips_top (
-            .clk                ((switches[13] && pc_current != 32'hC8) ? clk_5KHz : clk_pb),
+            .clk                ((switches[13] && pc_current != 32'h6C) ? clk_5KHz : clk_pb),
             .rst                (rst),
             .ra3                (switches[4:0]),
             // n input

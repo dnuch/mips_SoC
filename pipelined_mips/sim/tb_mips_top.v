@@ -52,7 +52,7 @@ module tb_mips_top;
         for (integer i = 0; i < 16; i = i + 1) begin
             gpi_1 = i;
             
-            while(pc_current != 32'hC8) tick;
+            while(pc_current != 32'h6C) tick;
             tick;
         end
         $finish;

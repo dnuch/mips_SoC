@@ -17,11 +17,31 @@ module datapath (
         input  wire [4:0]  ra3,
         input  wire [31:0] instr,
         input  wire [31:0] rd_dm,
+        
+        // ___inputs from Hazard Unit___
+        input wire StallF,
+        input wire StallD,
+        input wire FlushE,
+        input wire fordAD,
+        input wire fordBD,
+        input wire [1:0] fordAE,
+        input wire [1:0] fordBE,
+        input wire fordMultM,
+        // ___outputs to Hazard Unit___
+        output wire [4:0]  rf_wa_rdtE,
+        output wire [4:0]  rf_wa_rdtM,
+        output wire [4:0]  rf_wa_rdtW,        
+        //______________________________
+
         output wire [31:0] pc_current,
         output wire [31:0] alu_out,
         output wire [31:0] wd_dm,
         output wire [31:0] rd3,
-        output wire [31:0] instrD
+        
+        // need these two so that Hazard Unit can sample rs and rt (just being lazy) 
+        output wire [31:0] instrD,
+        output wire [31:0] instrE
+
     );
     
     wire [31:0] rd_dmM;
@@ -31,15 +51,11 @@ module datapath (
     assign alu_out = alu_outM;
     assign wd_dm = wd_dmM;
     
-    wire [31:0]  instrE;
     wire [31:0]  instrM;
     wire [31:0]  instrW;
     wire [31:0] pc_plus4D;
     wire [31:0]  shamt_in;
     wire [4:0]  rf_wa;
-    wire [4:0]  rf_wa_rdtE;
-    wire [4:0]  rf_wa_rdtM;
-    wire [4:0]  rf_wa_rdtW;
     wire [4:0]  rf_wa_ra;
     wire        pc_src;
     wire [31:0] rd_dmW;
@@ -60,13 +76,17 @@ module datapath (
     wire [31:0] low_inE;
     wire [31:0] high_inM;
     wire [31:0] low_inM;
-    wire [31:0] high_inW;
-    wire [31:0] low_inW;
+//    wire [31:0] high_inW;
+//    wire [31:0] low_inW;
     wire [31:0] alu_outE;
     wire [31:0] alu_outW;
     wire [31:0] sfmux_in0;
     wire [31:0] sfmux_in1;
-    wire [31:0] sfmux_out;
+    wire [31:0] sfmux_outM;
+    wire [31:0] sfmux_outW;
+    wire [31:0] fordOutM;
+    wire [31:0] ford_rsE;
+    wire [31:0] ford_rtE;
     wire [31:0] wd_aludm;
     wire [31:0] wd_sfhl;    
     wire [31:0] rsD;
@@ -80,46 +100,106 @@ module datapath (
     assign jta = {pc_plus4F[31:28], instrD[25:0], 2'b00};
     assign shamt_in = {27'd0, instrE[10:6]};
     
+    // HAZARD HANDLER COMPONENTS
+    //____ BEQ Hazard _____ (Decode)
+    wire [31:0] cmpA;
+    wire [31:0] cmpB;
+        
+    comparator comp(
+            .a              (cmpA),
+            .b              (cmpB),
+            .out            (zero)
+            );
+                
+    mux2 #(32) rsD_mux (
+            .sel            (fordAD),
+            .a              (rsD),
+            .b              (fordOutM), 
+            .y              (cmpA)
+            );
+    
+    mux2 #(32) rtD_mux (
+            .sel            (fordBD),
+            .a              (wd_dmD),
+            .b              (fordOutM), 
+            .y              (cmpB)
+            );
+    
+    //____ ALU & MULT Operation Hazard _____ (Execution)
+    mux4 #32 rsE_mux (
+                    .a              (rsE),
+                    .b              (wd_sfhl),
+                    .c              (fordOutM),
+                    .d              (rsE), // Should never be used, set to rsE just for precaution
+                    .sel            (fordAE),
+                    .y              (ford_rsE)                
+                );
+                
+    mux4 #32 rtE_mux (
+                    .a              (wd_dmE),
+                    .b              (wd_sfhl),
+                    .c              (fordOutM),
+                    .d              (wd_dmE), // Should never be used, set to wd_dmE just for precaution
+                    .sel            (fordBE),
+                    .y              (ford_rtE)                
+                            );
+    mux2 #32 alumult_mux (
+                    .sel            (fordMultM),
+                    .a              (alu_outM),
+                    .b              (sfmux_outM), 
+                    .y              (fordOutM)
+                );                
+
+
+    // ________________________________
+    
+    
     // Stage Registers       
     // ---DECODE---
-    dreg InstrD_reg (
+    dreg_enx InstrD_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .enx            (StallD),
                 .d              (instr),
                 .q              (instrD)
             );
    
-   dreg pcplus4D_reg (
+   dreg_enx pcplus4D_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .enx            (StallD),
                 .d              (pc_plus4F),
                 .q              (pc_plus4D)
             );
     // ---EXECUTE---
-    dreg InstrE_reg (
+    dreg_clr InstrE_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .clr            (FlushE),
                 .d              (instrD),
                 .q              (instrE)
             );
     
-    dreg rsE_reg (
+    dreg_clr rsE_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .clr            (FlushE),
                 .d              (rsD),
                 .q              (rsE)
             );
             
-    dreg wd_dmE_reg (
+    dreg_clr wd_dmE_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .clr            (FlushE),
                 .d              (wd_dmD),
                 .q              (wd_dmE)
             );
 
-    dreg sext_immE_reg (
+    dreg_clr sext_immE_reg (
                 .clk            (clk),
                 .rst            (rst),
+                .clr            (FlushE),
                 .d              (sext_immD),
                 .q              (sext_immE)
             );
@@ -166,13 +246,19 @@ module datapath (
                 .d              (instrM),
                 .q              (instrW)
             );
-            
-    dreg #64 multW_reg (
+    
+    dreg SFmuxW_reg (
                 .clk            (clk),
                 .rst            (rst),
-                .d              ({high_inM, low_inM}),
-                .q              ({high_inW, low_inW})
-    );
+                .d              (sfmux_outM),
+                .q              (sfmux_outW)
+            );    
+//    dreg #64 multW_reg (
+//                .clk            (clk),
+//                .rst            (rst),
+//                .d              ({high_inM, low_inM}),
+//                .q              ({high_inW, low_inW})
+//    );
 
     dreg rd_dmW_reg (
                 .clk            (clk),
@@ -197,9 +283,10 @@ module datapath (
     
     
     // --- PC Logic --- //
-    dreg pc_reg (
+    dreg_enx pc_reg (
             .clk            (clk),
             .rst            (rst),
+            .enx            (StallF),
             .d              (pc_next),
             .q              (pc_current)
         );
@@ -268,7 +355,7 @@ module datapath (
     // --- sll, srl Support --- //
     mux2 #(32) shift_mux (
                 .sel            (shmux),
-                .a              (rsE),
+                .a              (ford_rsE),
                 .b              (shamt_in),
                 .y              (alu_pa)
                 );
@@ -298,17 +385,12 @@ module datapath (
             .a              (instrD[15:0]),
             .y              (sext_immD)
         );
+        
     
-    comparator comp(
-            .a              (rsD),
-            .b              (wd_dmD),
-            .out            (zero)
-            );
-            
     // --- ALU Logic --- //
     mux2 #(32) alu_pb_mux (
             .sel            (alu_src),
-            .a              (wd_dmE),
+            .a              (ford_rtE),
             .b              (sext_immE),
             .y              (alu_pb)
         );
@@ -323,23 +405,24 @@ module datapath (
 
     // --- MULTIPLIER --- //
     multiplier_en mult(
-            .A              (rsE),
-            .B              (wd_dmE),
+            .A              (ford_rsE),
+            .B              (ford_rtE),
             .en             (mult_enable),
             .Y              ({high_inE, low_inE})
             );
     
+    // !UPDATE! low, high regs and sfmux are all in Memory Stage now
     dreg low_reg(
             .clk            (clk),
             .rst            (rst),
-            .d              (low_inW),
+            .d              (low_inM),
             .q              (sfmux_in0)
             );
                     
     dreg high_reg(
             .clk            (clk),
             .rst            (rst),
-            .d              (high_inW),
+            .d              (high_inM),
             .q              (sfmux_in1)
             );
     
@@ -347,13 +430,13 @@ module datapath (
             .sel            (sfmux_high),
             .a              (sfmux_in0),
             .b              (sfmux_in1),
-            .y              (sfmux_out)
+            .y              (sfmux_outM)
             );
             
     mux2 #(32) rf_sfhl_mux (
             .sel            (sf2reg),
             .a              (wd_aludm),
-            .b              (sfmux_out),
+            .b              (sfmux_outW),
             .y              (wd_sfhl)
             );
         
